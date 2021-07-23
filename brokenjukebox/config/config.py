@@ -7,6 +7,9 @@ class Config:
     CONFIG_FILE = None
     VERBOSE_MODE=None
 
+    ASSET_DIR=None
+    AUDIO_ASSET_DIR=None
+
     TOKEN=None
 
     VERSION = "0.1"
