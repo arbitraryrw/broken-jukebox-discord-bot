@@ -1,11 +1,13 @@
 import youtube_dl
 import discord
 import asyncio
+import os
+from brokenjukebox.config.config import Config
 
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
-    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'outtmpl': os.path.join(Config.AUDIO_ASSET_DIR, '%(extractor)s-%(id)s-%(title)s.%(ext)s'),
     'restrictfilenames': True,
     'noplaylist': True,
     'nocheckcertificate': True,
