@@ -10,6 +10,31 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         self._youtube_clips = list()
         self._TASKS = dict()
 
+
+    @discord.ext.commands.command(name="play")
+    async def adhoc_play(self, ctx, channel: str):
+        """
+        Plays a clip from the catalogue in a specific voice channel, to add clips use `!add`, to see what clips are currently there use `!list`
+        """
+        channel_match = [vc for vc in ctx.guild.voice_channels if vc.name == channel]
+
+        if len(channel_match) < 1:
+            known_channels = ", ".join(f"`{channel.name}`" for channel in ctx.guild.voice_channels)
+            await ctx.send(f'Channel provided did not match the following known channels {known_channels}')
+            return
+
+        if len(channel_match[0].members) < 1:
+            await ctx.send(f'No one is in that channel, stop being weird')
+            return
+
+        if len(self._youtube_clips) < 1:
+            await ctx.send(f'No clips added, try running `!add` or use `!help` for support')
+            return
+        
+        await self.play_audio_from_youtube_in_channel(
+            channel=channel_match[0]
+        )
+
     @discord.ext.commands.command(name="enable")
     async def enable_task(self, ctx, channel: str):
         """
@@ -27,7 +52,7 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             return
 
         if self._TASKS.get(channel_match[0].name) is not None:
-            await ctx.send(f'Already active in that channel, calm down you virgin')
+            await ctx.send(f'Already active in that channel, calm down')
             return
 
         if len(self._youtube_clips) < 1:
@@ -122,9 +147,22 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             await ctx.send(f'There are no clips currently, add one using !add see !help')
             return
 
+        
+        embed = discord.Embed(
+            title="Jukebox Catalogue", 
+            description="The clips that have been added to the bot through !add, to remove a clip run `!remove <number>`", 
+            color=0x00ff00
+        )
+
         for index, clip in enumerate(self._youtube_clips):
-            await ctx.send(f'Number {index+1} out of {len(self._youtube_clips)} clips'
-                f'- {clip} to remove this clip run `!remove {index+1}`')
+
+            embed.add_field(
+                name=f'{index+1} out of {len(self._youtube_clips)}, to remove this clip run `!remove {index+1}`',
+                value=clip,
+                inline=True
+            )
+        
+        await ctx.send(embed=embed)
 
     @discord.ext.commands.has_role('Jukebox Admin')
     @discord.ext.commands.command(name="add")
@@ -147,24 +185,35 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             await ctx.send(f'{url} added to catalog')
     
     @discord.ext.commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):  
+    async def on_voice_state_update(self, member, before, after): 
         if after.channel is None:
             print("User left")
             if len(before.channel.members) < 1 :
                 print("Channel is now empty")
                 await self.remove_task(before.channel.name)
-        else:
-            print(f"{member} joined")   
+            return
 
-            if len(self._youtube_clips) < 1:
-                print("No youtube clips queued, ignoring")
-                return
-            
-            await self.queue_task(
-                after.channel.name, 
-                self.monitor_channel_task, 
-                after.channel
-            )
+        if member.bot:
+            print(f"Bot {member.name} voice update, ignoring..")
+            return
+
+        # Check if there is a channel state change, muting / unmuting shoudn't trigger the bot
+        if before.channel == after.channel:
+            if before.self_mute and not after.self_mute:
+                print("Unmuted!")
+            return
+
+        if len(self._youtube_clips) < 1:
+            print("No youtube clips queued, ignoring")
+            return
+
+        await self.play_audio_from_youtube_in_channel(channel=after.channel)
+
+        await self.queue_task(
+            after.channel.name, 
+            self.monitor_channel_task, 
+            after.channel
+        )
 
     def get_channel_voice_client(self, channel_name: str) :
         bot_voice_client = [vc for vc in self.bot.voice_clients if vc.channel.name == channel_name]
@@ -203,10 +252,8 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
 
     async def monitor_channel_task(self, channel: discord.channel.VoiceChannel):
-        await self.play_audio_from_youtube_in_channel(channel=channel)
-
         while True:
-            sleep_interval = random.randint(30,600)
+            sleep_interval = random.randint(30,300)
             print(f"Sleeping {sleep_interval}")
             print(f"Tasks {len(self._TASKS)}")
             await asyncio.sleep(sleep_interval)
