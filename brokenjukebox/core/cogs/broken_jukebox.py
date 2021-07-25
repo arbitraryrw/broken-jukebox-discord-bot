@@ -316,11 +316,14 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             print(f"Tasks {len(self._TASKS)}")
             await asyncio.sleep(sleep_interval)
 
-            await self.play_audio_from_youtube_in_channel(
-                channel=channel, 
-                clip_catalogue=self._youtube_clips.get('regular')
-            )
-
+            try:
+                await self.play_audio_from_youtube_in_channel(
+                    channel=channel, 
+                    clip_catalogue=self._youtube_clips.get('regular')
+                )
+            except Exception as e:
+                print(f"Error running regular clip for monitor channel task: {e}")
+            
     async def remove_task(self, task_name: str) -> None:
         if self._TASKS.get(task_name) is None:
             return
@@ -333,3 +336,10 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             return
 
         self._TASKS[task_name] = asyncio.ensure_future(task(*args))
+
+    def is_valid_clip_category(self, category_name: str) -> bool:
+        for category in self._youtube_clips.keys():
+            if category_name.lower() == category:
+                return True
+
+        return False
