@@ -48,6 +48,9 @@ class CommandErrorHandler(commands.Cog):
 
         elif isinstance(error, discord.ext.commands.errors.MissingRole):
             await ctx.send('You do not have the correct role for this command.')
+        
+        elif isinstance(error, commands.MissingRequiredArgument):
+            await ctx.send(f'Missing required parameter see `!help` for guidance')
 
         else:
             print('Ignoring exception in command {}:'.format(ctx.command), file=sys.stderr)
