@@ -2,13 +2,18 @@ import discord
 import random
 import asyncio
 from brokenjukebox.core.youtube_download_source import YTDLSource
+import datetime
 
 
 class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
     def __init__(self, bot):
         self.bot = bot
-        self._youtube_clips = list()
         self._TASKS = dict()
+        self._IDLE_MEMBERS = dict()
+        self._youtube_clips = {
+            "regular": list(),
+            "welcome": list()
+        }
 
 
     @discord.ext.commands.command(name="play")
@@ -27,12 +32,15 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             await ctx.send(f'No one is in that channel, stop being weird')
             return
 
-        if len(self._youtube_clips) < 1:
-            await ctx.send(f'No clips added, try running `!add` or use `!help` for support')
+        if len(self._youtube_clips.get('regular')) < 1:
+            await ctx.send(f'No clips added to `regular` category, try running `!add` or use `!help` for support')
             return
         
+        await ctx.send(f'Clip coming right up for you')
+
         await self.play_audio_from_youtube_in_channel(
-            channel=channel_match[0]
+            channel=channel_match[0],
+            clip_catalogue=self._youtube_clips.get('regular')
         )
 
     @discord.ext.commands.command(name="enable")
@@ -55,7 +63,7 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             await ctx.send(f'Already active in that channel, calm down')
             return
 
-        if len(self._youtube_clips) < 1:
+        if len(self._youtube_clips.get('regular')) < 1:
             await ctx.send(f'No clips added, try running `!add` or use `!help` for support')
             return
         
@@ -88,7 +96,9 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         voice_client = self.get_channel_voice_client(channel)
 
         await self.remove_task(channel)
-        await ctx.send(f'uWWu I will stop bothering you in that channel until someone joins reeee')
+        await ctx.send(
+            f'I will stop bothering you in `{channel}` for now. I will start again when someone joins though!'
+        )
 
         if voice_client and voice_client.is_connected():
             await voice_client.disconnect()  
@@ -121,52 +131,63 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
     @discord.ext.commands.has_role('Jukebox Admin')
     @discord.ext.commands.command(name="remove")
-    async def remove_youtube_clip(self, ctx, remove_index: int):
+    async def remove_youtube_clip(self, ctx, clip_category:str, remove_index: int):
         """
-        Remove a clip from the catalogue
+        Remove a clip from a category catalogue
         """
+        if not self.is_valid_clip_category(clip_category):
+            valid_categories = ", ".join(f"`{category}`" for category in self._youtube_clips.keys())
+            await ctx.send(f'Clip category proivded does not match and of {valid_categories}')
+            return 
+        
+        clip_category = clip_category.lower()
 
-        if len(self._youtube_clips) < 1:
+        if len(self._youtube_clips.get(clip_category)) < 1:
             await ctx.send(f'There are no clips currently, add one using !add see !help')
             return
 
-        if remove_index > len(self._youtube_clips) or remove_index < 0:
+        if remove_index > len(self._youtube_clips.get(clip_category)) or remove_index < 0:
             await ctx.send(f'Cannot remove index see !list for a valid index')
 
-        removed_item = self._youtube_clips.pop(remove_index-1)
-        await ctx.send(f'Removed item {removed_item} - {removed_item}, there are now {len(self._youtube_clips)}'
+        removed_item = self._youtube_clips[clip_category].pop(remove_index-1)
+        await ctx.send(f'Removed {removed_item}, there are now {len(self._youtube_clips.get(clip_category))}'
             f' item(s) in the catalogue')
 
 
     @discord.ext.commands.command(name="list")
-    async def list_youtube_clips(self, ctx):
+    async def list_youtube_clips(self, ctx, clip_category:str):
         """
-        List the youtube clips that have been added to the bot
+        List the youtube clips that have been added to the bot for a given category
         """
-        if len(self._youtube_clips) < 1:
+        if not self.is_valid_clip_category(clip_category):
+            valid_categories = ", ".join(f"`{category}`" for category in self._youtube_clips.keys())
+            await ctx.send(f'Clip category proivded does not match and of {valid_categories}')
+            return 
+        
+        clip_category = clip_category.lower()
+
+        if len(self._youtube_clips.get(clip_category)) < 1:
             await ctx.send(f'There are no clips currently, add one using !add see !help')
             return
-
         
         embed = discord.Embed(
             title="Jukebox Catalogue", 
-            description="The clips that have been added to the bot through !add, to remove a clip run `!remove <number>`", 
-            color=0x00ff00
+            description="The clips that have been added to the bot through !add, to remove a clip run `!remove <clip category> <number>`", 
+            color=0x800080
         )
 
-        for index, clip in enumerate(self._youtube_clips):
-
+        for index, clip in enumerate(self._youtube_clips.get(clip_category)):
             embed.add_field(
-                name=f'{index+1} out of {len(self._youtube_clips)}, to remove this clip run `!remove {index+1}`',
+                name=f'{index+1} out of {len(self._youtube_clips.get(clip_category))}, to remove this clip run `!remove {clip_category} {index+1}`',
                 value=clip,
-                inline=True
+                inline=False
             )
         
         await ctx.send(embed=embed)
 
     @discord.ext.commands.has_role('Jukebox Admin')
     @discord.ext.commands.command(name="add")
-    async def queue_youtube_clip(self, ctx, url:str):
+    async def queue_youtube_clip(self, ctx, url:str, clip_category:str):
         """
         Add a youtube clip to the catalogue of clips
         
@@ -176,13 +197,22 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         The list of supported sites can be found here:
         https://rg3.github.io/youtube-dl/supportedsites.html
         """
+
+        if not self.is_valid_clip_category(clip_category):
+            valid_categories = ", ".join(f"`{category}`" for category in self._youtube_clips.keys())
+            await ctx.send(f'Clip category proivded does not match and of {valid_categories}')
+            return 
+
         async with ctx.typing():
-            if any(youtube_clip == url for youtube_clip in self._youtube_clips):
-                await ctx.send(f'{url} is already in the catalog')
+            if any(youtube_clip == url for youtube_clip in self._youtube_clips.get(clip_category.lower())):
+                await ctx.send(f'This is already in the catalogue, see `!list` and `!help`')
                 return
 
-            self._youtube_clips.append(url)
-            await ctx.send(f'{url} added to catalog')
+            self._youtube_clips[clip_category.lower()].append(url)
+
+            await ctx.send(f'Added clip to {clip_category} catalog, there are a total of '
+                f'{len(self._youtube_clips.get(clip_category))} clip(s) in this category now'
+            )
     
     @discord.ext.commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after): 
@@ -199,15 +229,16 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
         # Check if there is a channel state change, muting / unmuting shoudn't trigger the bot
         if before.channel == after.channel:
-            if before.self_mute and not after.self_mute:
-                print("Unmuted!")
             return
 
-        if len(self._youtube_clips) < 1:
-            print("No youtube clips queued, ignoring")
-            return
+        await self.play_audio_from_youtube_in_channel(
+            channel=after.channel, 
+            clip_catalogue=self._youtube_clips.get('welcome')
+        )
 
-        await self.play_audio_from_youtube_in_channel(channel=after.channel)
+        if len(self._youtube_clips.get('regular')) < 1:
+            print("No youtube clips queued, not starting redundant background task")
+            return
 
         await self.queue_task(
             after.channel.name, 
@@ -223,14 +254,18 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
         return None
     
-    async def play_audio_from_youtube_in_channel(self, channel: discord.channel.VoiceChannel):
+    async def play_audio_from_youtube_in_channel(self, channel: discord.channel.VoiceChannel, clip_catalogue: list) -> None:
+        if len(clip_catalogue) < 1:
+            print("No clips to play, skipping")
+            return
+
         voice_client = self.get_channel_voice_client(channel.name)
 
         if voice_client and voice_client.is_playing():
             print("Clip already playing ignoring!")
             return
         
-        url = random.choice(self._youtube_clips)
+        url = random.choice(clip_catalogue)
         clip = await YTDLSource.from_url(url, loop=self.bot.loop)
             
         print(f'Playing {clip.title} - {url}')
@@ -258,7 +293,10 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             print(f"Tasks {len(self._TASKS)}")
             await asyncio.sleep(sleep_interval)
 
-            await self.play_audio_from_youtube_in_channel(channel=channel)
+            await self.play_audio_from_youtube_in_channel(
+                channel=channel, 
+                clip_catalogue=self._youtube_clips.get('regular')
+            )
 
     async def remove_task(self, task_name: str) -> None:
         if self._TASKS.get(task_name) is None:
