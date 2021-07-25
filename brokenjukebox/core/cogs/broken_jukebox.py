@@ -11,6 +11,7 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         self._TASKS = dict()
         self._IDLE_MEMBERS = dict()
         self._youtube_clips = {
+            "idle": list(),
             "regular": list(),
             "welcome": list()
         }
@@ -229,6 +230,28 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
         # Check if there is a channel state change, muting / unmuting shoudn't trigger the bot
         if before.channel == after.channel:
+            if after.self_mute:
+                print(f"{member} went on mute")
+                self._IDLE_MEMBERS[member.name] = datetime.datetime.now()
+
+            if not after.self_mute:
+                print(f"{member} unmuted!")
+
+                if not self._IDLE_MEMBERS.get(member.name):
+                    print(f"Member {member.name} was not in the idle members object, ignoring..")
+                    return
+
+                time_delta = datetime.datetime.now() - self._IDLE_MEMBERS[member.name]
+                del self._IDLE_MEMBERS[member.name]
+
+                if time_delta.total_seconds() < 5:
+                    return
+
+                print(f"{member} was on mute for {time_delta.total_seconds()} seconds, playing an audio clip")
+                await self.play_audio_from_youtube_in_channel(
+                    channel=after.channel,
+                    clip_catalogue=self._youtube_clips.get('idle')
+                )
             return
 
         await self.play_audio_from_youtube_in_channel(
