@@ -282,19 +282,16 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
             print("No clips to play, skipping")
             return
 
-        voice_client = self.get_channel_voice_client(channel.name)
-
-        if voice_client and voice_client.is_playing():
-            print("Clip already playing ignoring!")
-            return
+        while len(self.bot.voice_clients) > 0:
+            print("Waiting for existing action to finish")
+            await asyncio.sleep(1)
         
         url = random.choice(clip_catalogue)
         clip = await YTDLSource.from_url(url, loop=self.bot.loop)
             
         print(f'Playing {clip.title} - {url}')
-
-        if not voice_client:
-            voice_client = await channel.connect()
+        
+        voice_client = await channel.connect()
 
         voice_client.play(
             clip, 
@@ -311,7 +308,7 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
     async def monitor_channel_task(self, channel: discord.channel.VoiceChannel):
         while True:
-            sleep_interval = random.randint(30,300)
+            sleep_interval = random.randint(60,300)
             print(f"Sleeping {sleep_interval}")
             print(f"Tasks {len(self._TASKS)}")
             await asyncio.sleep(sleep_interval)
