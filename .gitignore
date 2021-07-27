@@ -128,3 +128,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Config file 
+brokenjukebox/config/broken_jukebox_config.json
+brokenjukebox/assets/audio/*
+!brokenjukebox/assets/audio/.gitkeep 
+
+# Ignore any files downloaded from youtube downloader
+*.m4a
