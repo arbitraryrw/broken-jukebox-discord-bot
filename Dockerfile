@@ -1,7 +1,10 @@
  # syntax=docker/dockerfile:1
 FROM python:3.8-alpine
 
-RUN apk add --no-cache ffmpeg
+RUN apk update && apk add --no-cache python3-dev \
+                        gcc \
+                        libc-dev \
+                        ffmpeg 
 
 WORKDIR /app
 
