@@ -7,7 +7,8 @@ RUN apk update && apk add --no-cache python3-dev \
                         libffi-dev \
                         openssl-dev \
                         ffmpeg \
-                        make
+                        make \
+                        opus-dev
 
 WORKDIR /app
 
