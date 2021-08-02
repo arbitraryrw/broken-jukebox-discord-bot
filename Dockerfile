@@ -4,6 +4,8 @@ FROM python:3.8-alpine
 RUN apk update && apk add --no-cache python3-dev \
                         gcc \
                         libc-dev \
+                        libffi-dev \
+                        openssl-dev \
                         ffmpeg 
 
 WORKDIR /app
