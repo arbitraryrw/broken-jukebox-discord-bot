@@ -308,7 +308,7 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
 
     async def monitor_channel_task(self, channel: discord.channel.VoiceChannel):
         while True:
-            sleep_interval = random.randint(60,300)
+            sleep_interval = random.randint(300,600)
             print(f"Sleeping {sleep_interval}")
             print(f"Tasks {len(self._TASKS)}")
             await asyncio.sleep(sleep_interval)
