@@ -11,7 +11,6 @@ class Core:
         # Initialise an instance of the Config class to run initialisation functions
         Config()
 
-
     def start(self):
         print("[INFO] Starting discord bot..")
 

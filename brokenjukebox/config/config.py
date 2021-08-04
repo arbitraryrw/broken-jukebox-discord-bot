@@ -5,6 +5,8 @@ from brokenjukebox.util.util import Util
 class Config:
     ROOT_DIR=None
     CONFIG_FILE = None
+    CATALOGUE_FILE=None
+
     VERBOSE_MODE=None
 
     ASSET_DIR=None
