@@ -1,3 +1,5 @@
+from brokenjukebox.config.config import Config
+from brokenjukebox.util.util import Util
 import discord
 import random
 import asyncio
@@ -10,12 +12,25 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         self.bot = bot
         self._TASKS = dict()
         self._IDLE_MEMBERS = dict()
-        self._youtube_clips = {
-            "idle": list(),
-            "regular": list(),
-            "welcome": list()
-        }
 
+        # Load the catalogue from disk
+        self._youtube_clips = Util.read_json_from_file(Config.CATALOGUE_FILE)
+
+        # If the catalogue does not exist or does not contain the expected params, then initialise a new catalpgue
+        if self._youtube_clips is None \
+            or self._youtube_clips.get('idle') is None \
+            or self._youtube_clips.get('welcome') is None \
+            or self._youtube_clips.get('regular') is None:
+
+            print(f"[INFO] No catalogue file on disk or malformed file, starting fresh")
+            self._youtube_clips = {
+                "idle": list(),
+                "regular": list(),
+                "welcome": list()
+            }
+        else:
+            catalogue_summary = ", ".join(f"{key} category has {len(value)} clip(s)" for key, value in self._youtube_clips.items())
+            print(f"[INFO] Successfully loaded catalogue from disk {catalogue_summary}")
 
     @discord.ext.commands.command(name="play")
     async def adhoc_play(self, ctx, channel: str):
@@ -154,6 +169,8 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         await ctx.send(f'Removed {removed_item}, there are now {len(self._youtube_clips.get(clip_category))}'
             f' item(s) in the catalogue')
 
+        # ToDo: Write to file
+        Util.write_json_to_file(Config.CATALOGUE_FILE, self._youtube_clips)
 
     @discord.ext.commands.command(name="list")
     async def list_youtube_clips(self, ctx, clip_category:str):
@@ -210,6 +227,11 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
                 return
 
             self._youtube_clips[clip_category.lower()].append(url)
+
+            # ToDo: write to file
+
+            # Write the current catalogue to disk to make sure it persists restarts etc
+            Util.write_json_to_file(Config.CATALOGUE_FILE, self._youtube_clips)
 
             await ctx.send(f'Added clip to {clip_category} catalog, there are a total of '
                 f'{len(self._youtube_clips.get(clip_category))} clip(s) in this category now'
