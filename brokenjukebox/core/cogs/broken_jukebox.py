@@ -169,7 +169,6 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
         await ctx.send(f'Removed {removed_item}, there are now {len(self._youtube_clips.get(clip_category))}'
             f' item(s) in the catalogue')
 
-        # ToDo: Write to file
         Util.write_json_to_file(Config.CATALOGUE_FILE, self._youtube_clips)
 
     @discord.ext.commands.command(name="list")
@@ -227,8 +226,6 @@ class BrokenJukebox(discord.ext.commands.Cog, name='Broken Jukebox'):
                 return
 
             self._youtube_clips[clip_category.lower()].append(url)
-
-            # ToDo: write to file
 
             # Write the current catalogue to disk to make sure it persists restarts etc
             Util.write_json_to_file(Config.CATALOGUE_FILE, self._youtube_clips)
