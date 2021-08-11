@@ -1,4 +1,3 @@
-import discord
 from brokenjukebox.config.config import Config
 from brokenjukebox.core.custom_discord_bot import CustomDiscordBot
 from brokenjukebox.core.cogs.command_error_handler import CommandErrorHandler
